@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>三分钟热度管理系统 | 终极版</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#165DFF',
+            success: '#00B42A',
+            warning: '#FF7D00',
+            neutral: '#F5F7FA',
+            dark: '#1D2129',
+            gray: '#6E7681'
+          },
+          fontFamily: {
+            inter: ['Inter', 'system-ui', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: #F9FAFC; }
+    .dark body { background: #111827; }
+    .card-shadow { box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+    .dark .card-shadow { box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+    .circle-progress { transform: rotate(-90deg); }
+    .login-card { animation: fade 0.3s ease; }
+    .celebrate { animation: pop 0.5s ease; }
+    @keyframes fade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes pop { 0%{transform:scale(0.8);opacity:0} 50%{transform:scale(1.1);} 100%{transform:scale(1);opacity:1} }
+    .calendar-day { aspect-ratio: 1/1; }
+  </style>
+</head>
+<body class="font-inter">
+  <!-- 登录页面 -->
+  <div id="loginPage" class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-md">
+      <div id="loginCard" class="login-card bg-white dark:bg-gray-800 rounded-2xl p-8 card-shadow">
+        <div class="text-center mb-8">
+          <h2 class="text-dark dark:text-white text-2xl font-bold">SkillMaster 登录</h2>
+          <p class="text-gray mt-2">20小时技能养成管理系统</p>
+        </div>
+        <div class="space-y-4">
+          <input id="loginUser" placeholder="用户名" class="w-full px-4 py-3 rounded-lg border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+          <input id="loginPwd" type="password" placeholder="密码" class="w-full px-4 py-3 rounded-lg border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+          <button onclick="userLogin()" class="w-full bg-primary text-white py-3 rounded-lg">登录</button>
+          <p class="text-center text-sm text-gray">没有账号？<span onclick="switchToRegister()" class="text-primary cursor-pointer">立即注册</span></p>
+        </div>
+      </div>
+
+      <div id="registerCard" class="login-card hidden bg-white dark:bg-gray-800 rounded-2xl p-8 card-shadow">
+        <div class="text-center mb-8">
+          <h2 class="text-dark dark:text-white text-2xl font-bold">账号注册</h2>
+          <p class="text-gray mt-2">创建独立管理账户</p>
+        </div>
+        <div class="space-y-4">
+          <input id="regUser" placeholder="用户名" class="w-full px-4 py-3 rounded-lg border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+          <input id="regPwd" type="password" placeholder="密码" class="w-full px-4 py-3 rounded-lg border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+          <button onclick="userRegister()" class="w-full bg-primary text-white py-3 rounded-lg">注册</button>
+          <p class="text-center text-sm text-gray">已有账号？<span onclick="switchToLogin()" class="text-primary cursor-pointer">返回登录</span></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 主界面 -->
+  <div id="mainPage" class="hidden min-h-screen pb-20 dark:text-white">
+    <header class="sticky top-0 bg-white dark:bg-gray-800 border-b z-50">
+      <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+        <div>
+          <h1 class="text-xl font-bold text-dark dark:text-white">SkillMaster <span class="text-primary">| 20小时养成</span></h1>
+          <p class="text-sm text-gray mt-1">欢迎 <span id="currentUser" class="text-primary font-medium"></span></p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="openCalendar()" class="p-2 rounded-lg"><i class="fa fa-calendar"></i></button>
+          <button onclick="openChartPage()" class="p-2 rounded-lg"><i class="fa fa-line-chart"></i></button>
+          <button onclick="openLogPage()" class="p-2 rounded-lg"><i class="fa fa-history"></i></button>
+          <button onclick="toggleDark()" class="p-2 rounded-lg" id="darkBtn"><i class="fa fa-moon-o"></i></button>
+          <button onclick="exportData()" class="p-2 rounded-lg"><i class="fa fa-download"></i></button>
+          <button onclick="importData()" class="p-2 rounded-lg"><i class="fa fa-upload"></i></button>
+          <button onclick="logout()" class="px-3 py-2 border rounded-lg text-sm"><i class="fa fa-sign-out mr-1"></i>退出</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- 统计面板 -->
+    <div class="max-w-6xl mx-auto px-4 mt-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-5 card-shadow">
+          <p class="text-gray text-sm">今日学习</p>
+          <h3 id="todayTime" class="text-2xl font-bold">0h 0m</h3>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-5 card-shadow">
+          <p class="text-gray text-sm">本周学习</p>
+          <h3 id="weekTime" class="text-2xl font-bold">0h 0m</h3>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-5 card-shadow">
+          <p class="text-gray text-sm">本月学习</p>
+          <h3 id="monthTime" class="text-2xl font-bold">0h 0m</h3>
+        </div>
+      </div>
+    </div>
+
+    <!-- 分类 + 添加 -->
+    <div class="max-w-6xl mx-auto px-4 mb-6">
+      <div class="flex flex-wrap justify-between items-center gap-3">
+        <div class="flex gap-2">
+          <button class="category-btn active px-4 py-2 bg-primary text-white rounded-lg" data-type="all">全部</button>
+          <button class="category-btn px-4 py-2 bg-neutral dark:bg-gray-700 rounded-lg" data-type="学习">学习</button>
+          <button class="category-btn px-4 py-2 bg-neutral dark:bg-gray-700 rounded-lg" data-type="工作">工作</button>
+          <button class="category-btn px-4 py-2 bg-neutral dark:bg-gray-700 rounded-lg" data-type="爱好">爱好</button>
+        </div>
+        <button onclick="openAddModal()" class="px-4 py-2 bg-primary text-white rounded-lg"><i class="fa fa-plus mr-1"></i>添加项目</button>
+      </div>
+    </div>
+
+    <!-- 推荐任务 -->
+    <div class="max-w-6xl mx-auto px-4 mb-6">
+      <div class="bg-white dark:bg-gray-800 rounded-xl p-5 card-shadow">
+        <div class="flex justify-between items-center">
+          <div>
+            <h3 class="font-medium">今日推荐任务</h3>
+            <p id="todayTask" class="text-sm text-gray mt-1">开始学习，为你智能推荐</p>
+          </div>
+          <button id="taskBtn" class="px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-sm hidden">去打卡</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 技能列表 -->
+    <div class="max-w-6xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" id="skillList"></div>
+  </div>
+
+  <!-- 页面：学习日志 -->
+  <div id="logPage" class="hidden fixed inset-0 z-50 bg-white dark:bg-gray-800 p-4 overflow-auto">
+    <div class="max-w-4xl mx-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold">学习历史日志</h2>
+        <button onclick="closeLogPage()" class="p-2">✕</button>
+      </div>
+      <div id="logList" class="space-y-2"></div>
+      <button onclick="clearLogs()" class="mt-4 text-red-500 text-sm">清空所有日志</button>
+    </div>
+  </div>
+
+  <!-- 页面：数据图表 -->
+  <div id="chartPage" class="hidden fixed inset-0 z-50 bg-white dark:bg-gray-800 p-4 overflow-auto">
+    <div class="max-w-4xl mx-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold">学习数据统计</h2>
+        <button onclick="closeChartPage()" class="p-2">✕</button>
+      </div>
+      <div class="h-80"><canvas id="studyChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- 页面：打卡日历 -->
+  <div id="calendarPage" class="hidden fixed inset-0 z-50 bg-white dark:bg-gray-800 p-4 overflow-auto">
+    <div class="max-w-4xl mx-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold">学习打卡日历</h2>
+        <button onclick="closeCalendar()" class="p-2">✕</button>
+      </div>
+      <div class="grid grid-cols-7 gap-1 text-center text-xs mb-2">
+        <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+      </div>
+      <div id="calendarGrid" class="grid grid-cols-7 gap-1"></div>
+    </div>
+  </div>
+
+  <!-- 弹窗：添加 -->
+  <div id="addModal" class="fixed inset-0 bg-black/20 z-50 hidden items-center justify-center">
+    <div class="bg-white dark:bg-gray-800 w-full max-w-sm rounded-2xl p-6">
+      <h3 class="text-lg font-bold mb-4">添加技能项目</h3>
+      <input id="newSkillName" placeholder="项目名称" class="w-full px-4 py-3 rounded-lg border mb-2">
+      <select id="newSkillCate" class="w-full px-4 py-3 rounded-lg border mb-4">
+        <option value="学习">学习</option><option value="工作">工作</option><option value="爱好">爱好</option>
+      </select>
+      <div class="flex gap-2">
+        <button onclick="closeAddModal()" class="flex-1 py-2.5 bg-neutral dark:bg-gray-700 rounded-lg">取消</button>
+        <button onclick="addSkill()" class="flex-1 py-2.5 bg-primary text-white rounded-lg">添加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 弹窗：记录学习 -->
+  <div id="logModal" class="fixed inset-0 bg-black/20 z-50 hidden items-center justify-center">
+    <div class="bg-white dark:bg-gray-800 w-full max-w-sm rounded-2xl p-6">
+      <h3 class="text-lg font-bold mb-4">记录学习时长</h3>
+      <input id="studyMinutes" type="number" placeholder="分钟" class="w-full px-4 py-3 rounded-lg border mb-2">
+      <div class="flex gap-2 mb-4">
+        <button onclick="quickLog(10)" class="flex-1 bg-neutral dark:bg-gray-700 py-2 rounded-lg">10分</button>
+        <button onclick="quickLog(20)" class="flex-1 bg-neutral dark:bg-gray-700 py-2 rounded-lg">20分</button>
+        <button onclick="quickLog(30)" class="flex-1 bg-neutral dark:bg-gray-700 py-2 rounded-lg">30分</button>
+        <button onclick="quickLog(60)" class="flex-1 bg-neutral dark:bg-gray-700 py-2 rounded-lg">1小时</button>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="closeLogModal()" class="flex-1 py-2.5 bg-neutral dark:bg-gray-700 rounded-lg">取消</button>
+        <button onclick="saveStudyLog()" class="flex-1 py-2.5 bg-primary text-white rounded-lg">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 弹窗：编辑 -->
+  <div id="editModal" class="fixed inset-0 bg-black/20 z-50 hidden items-center justify-center">
+    <div class="bg-white dark:bg-gray-800 w-full max-w-sm rounded-2xl p-6">
+      <h3 class="text-lg font-bold mb-4">编辑项目</h3>
+      <input id="editName" class="w-full px-4 py-3 rounded-lg border mb-4">
+      <div class="flex gap-2">
+        <button onclick="closeEditModal()" class="flex-1 py-2.5 bg-neutral dark:bg-gray-700 rounded-lg">取消</button>
+        <button onclick="saveEdit()" class="flex-1 py-2.5 bg-primary text-white rounded-lg">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 隐藏导入按钮 -->
+  <input type="file" id="importFile" class="hidden" accept=".json">
+
+  <script>
+    const TARGET_HOURS = 20;
+    const TARGET_MINUTES = TARGET_HOURS * 60;
+    let currentUserName = '';
+    let currentEditIndex = null;
+    let studyChart = null;
+
+    // 初始化系统
+    window.onload = () => {
+      if(localStorage.getItem('dark') === '1'){
+        document.documentElement.classList.add('dark');
+        document.getElementById('darkBtn').innerHTML = '<i class="fa fa-sun-o"></i>';
+      }
+    }
+
+    // 切换深色模式
+    function toggleDark(){
+      document.documentElement.classList.toggle('dark');
+      const dark = document.documentElement.classList.contains('dark');
+      localStorage.setItem('dark', dark ? 1 : 0);
+      document.getElementById('darkBtn').innerHTML = dark ? '<i class="fa fa-sun-o"></i>' : '<i class="fa fa-moon-o"></i>';
+    }
+
+    // 登录注册
+    function switchToRegister(){ document.getElementById('loginCard').classList.add('hidden'); document.getElementById('registerCard').classList.remove('hidden'); }
+    function switchToLogin(){ document.getElementById('registerCard').classList.add('hidden'); document.getElementById('loginCard').classList.remove('hidden'); }
+    function userRegister(){
+      const user = document.getElementById('regUser').value.trim();
+      const pwd = document.getElementById('regPwd').value.trim();
+      if(!user||!pwd)return alert('请输入用户名和密码');
+      let users=JSON.parse(localStorage.getItem('sm_users'))||[];
+      if(users.find(u=>u.user===user))return alert('用户名已存在');
+      users.push({user,pwd});
+      localStorage.setItem('sm_users',JSON.stringify(users));
+      alert('注册成功！');
+      switchToLogin();
+    }
+    function userLogin(){
+      const user=document.getElementById('loginUser').value.trim();
+      const pwd=document.getElementById('loginPwd').value.trim();
+      let users=JSON.parse(localStorage.getItem('sm_users'))||[];
+      const target=users.find(u=>u.user===user&&u.pwd===pwd);
+      if(!target)return alert('用户名或密码错误');
+      currentUserName=user;
+      document.getElementById('currentUser').innerText=user;
+      document.getElementById('loginPage').classList.add('hidden');
+      document.getElementById('mainPage').classList.remove('hidden');
+      initUserData();
+    }
+    function logout(){
+      currentUserName='';
+      document.getElementById('mainPage').classList.add('hidden');
+      document.getElementById('loginPage').classList.remove('hidden');
+    }
+
+    // 数据存储
+    function getUserSkills(){return JSON.parse(localStorage.getItem(`sm_${currentUserName}_skills`))||[];}
+    function saveUserSkills(d){localStorage.setItem(`sm_${currentUserName}_skills`,JSON.stringify(d));}
+    function getUserLogs(){return JSON.parse(localStorage.getItem(`sm_${currentUserName}_logs`))||[];}
+    function saveUserLogs(d){localStorage.setItem(`sm_${currentUserName}_logs`,JSON.stringify(d));}
+
+    // 初始化
+    function initUserData(){renderSkillList();calcTimeStats();recommendTodayTask();}
+
+    // 添加技能
+    function openAddModal(){document.getElementById('addModal').style.display='flex';}
+    function closeAddModal(){document.getElementById('addModal').style.display='none';}
+    function addSkill(){
+      const name=document.getElementById('newSkillName').value.trim();
+      const cate=document.getElementById('newSkillCate').value;
+      if(!name)return;
+      const list=getUserSkills();
+      list.push({name,cate,minutes:0});
+      saveUserSkills(list);
+      closeAddModal();
+      renderSkillList();
+      recommendTodayTask();
+    }
+
+    // 编辑技能
+    function openEditModal(i){
+      currentEditIndex=i;
+      const item=getUserSkills()[i];
+      document.getElementById('editName').value=item.name;
+      document.getElementById('editModal').style.display='flex';
+    }
+    function closeEditModal(){document.getElementById('editModal').style.display='none';}
+    function saveEdit(){
+      const val=document.getElementById('editName').value.trim();
+      if(!val)return;
+      const list=getUserSkills();
+      list[currentEditIndex].name=val;
+      saveUserSkills(list);
+      closeEditModal();
+      renderSkillList();
+    }
+
+    // 记录学习
+    function openLogModal(i){currentEditIndex=i;document.getElementById('logModal').style.display='flex';document.getElementById('studyMinutes').value='';}
+    function closeLogModal(){document.getElementById('logModal').style.display='none';}
+    function quickLog(m){document.getElementById('studyMinutes').value=m;saveStudyLog();}
+    function saveStudyLog(){
+      const m=Number(document.getElementById('studyMinutes').value);
+      if(!m||m<=0)return;
+      const list=getUserSkills();
+      const before=list[currentEditIndex].minutes;
+      list[currentEditIndex].minutes+=m;
+      if(before<TARGET_MINUTES&&list[currentEditIndex].minutes>=TARGET_MINUTES){
+        setTimeout(()=>alert(`🎉 恭喜！「${list[currentEditIndex].name}」完成20小时目标！`),200);
+      }
+      saveUserSkills(list);
+      const logs=getUserLogs();
+      logs.push({time:new Date().getTime(),index:currentEditIndex,minutes:m,name:list[currentEditIndex].name});
+      saveUserLogs(logs);
+      closeLogModal();
+      renderSkillList();
+      calcTimeStats();
+      recommendTodayTask();
+    }
+
+    // 删除
+    function deleteSkill(i){
+      if(!confirm('确定删除？'))return;
+      const list=getUserSkills();
+      list.splice(i,1);
+      saveUserSkills(list);
+      renderSkillList();
+      recommendTodayTask();
+    }
+
+    // 渲染列表
+    function renderSkillList(){
+      const list=getUserSkills();
+      const el=document.getElementById('skillList');
+      if(list.length===0){el.innerHTML='<div class="col-span-full text-center text-gray py-10">暂无技能项目</div>';return;}
+      el.innerHTML=list.map((item,i)=>{
+        const pct=Math.min(100,(item.minutes/TARGET_MINUTES*100).toFixed(1));
+        const r=30,circ=2*Math.PI*r,dash=(pct/100)*circ;
+        const h=Math.floor(item.minutes/60),m=item.minutes%60;
+        let color='#165DFF';
+        if(item.cate==='工作')color='#FF7D00';
+        if(item.cate==='爱好')color='#00B42A';
+        return `
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-5 card-shadow skill-card" data-cate="${item.cate}">
+          <div class="flex justify-between items-start mb-4">
+            <span class="text-xs px-2 py-1 rounded-full bg-neutral dark:bg-gray-700" style="color:${color}">${item.cate}</span>
+            <div class="flex gap-2">
+              <button onclick="openEditModal(${i})" class="text-gray"><i class="fa fa-pencil"></i></button>
+              <button onclick="deleteSkill(${i})" class="text-gray hover:text-red-500"><i class="fa fa-trash-o"></i></button>
+            </div>
+          </div>
+          <div class="flex items-center gap-4 mb-4">
+            <div class="relative w-16 h-16">
+              <svg class="circle-progress w-full h-full" viewBox="0 0 70 70">
+                <circle cx="35" cy="35" r="${r}" stroke="#eee" dark:stroke="#666" stroke-width="5" fill="none"></circle>
+                <circle cx="35" cy="35" r="${r}" stroke="${color}" stroke-width="5" fill="none" stroke-dasharray="${circ}" stroke-dashoffset="${circ-dash}"></circle>
+              </svg>
+              <div class="absolute inset-0 flex items-center justify-center text-sm font-bold">${pct}%</div>
+            </div>
+            <div>
+              <h4 class="font-bold">${item.name}</h4>
+              <p class="text-xs text-gray">${h}h ${m}m / 20h</p>
+            </div>
+          </div>
+          <div class="w-full h-1.5 bg-neutral dark:bg-gray-700 rounded-full mb-4">
+            <div style="width:${pct}%;background:${color}" class="h-full rounded-full"></div>
+          </div>
+          <button onclick="openLogModal(${i})" class="w-full py-2 rounded-lg text-primary bg-primary/10">记录学习</button>
+        </div>`;
+      }).join('');
+    }
+
+    // 时间统计
+    function calcTimeStats(){
+      const logs=getUserLogs();
+      const now=new Date();
+      const today=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
+      const monday=new Date(now.setDate(now.getDate()-now.getDay())).getTime();
+      const monthFirst=new Date(now.getFullYear(),now.getMonth(),1).getTime();
+      let t=0,w=0,m=0;
+      logs.forEach(l=>{
+        if(l.time>=today)t+=l.minutes;
+        if(l.time>=monday)w+=l.minutes;
+        if(l.time>=monthFirst)m+=l.minutes;
+      });
+      document.getElementById('todayTime').innerText=`${Math.floor(t/60)}h ${t%60}m`;
+      document.getElementById('weekTime').innerText=`${Math.floor(w/60)}h ${w%60}m`;
+      document.getElementById('monthTime').innerText=`${Math.floor(m/60)}h ${m%60}m`;
+    }
+
+    // 推荐任务
+    function recommendTodayTask(){
+      const list=getUserSkills();
+      if(list.length===0){document.getElementById('todayTask').innerText='开始学习，为你智能推荐';document.getElementById('taskBtn').classList.add('hidden');return;}
+      const sorted=[...list].sort((a,b)=>(a.minutes/TARGET_MINUTES)-(b.minutes/TARGET_MINUTES));
+      const target=sorted[0];
+      const idx=list.indexOf(target);
+      document.getElementById('todayTask').innerText=`${target.name} | 进度 ${pct}%`;
+      const btn=document.getElementById('taskBtn');
+      btn.classList.remove('hidden');
+      btn.onclick=()=>openLogModal(idx);
+    }
+
+    // 分类筛选
+    document.querySelectorAll('.category-btn').forEach(btn=>{
+      btn.onclick=()=>{
+        document.querySelectorAll('.category-btn').forEach(b=>b.classList.remove('active','bg-primary','text-white'));
+        btn.classList.add('active','bg-primary','text-white');
+        const type=btn.dataset.type;
+        document.querySelectorAll('.skill-card').forEach(c=>{
+          c.style.display=type==='all'||c.dataset.cate===type?'block':'none';
+        });
+      }
+    });
+
+    // 学习日志页面
+    function openLogPage(){
+      document.getElementById('logPage').classList.remove('hidden');
+      const logs=getUserLogs();
+      const el=document.getElementById('logList');
+      el.innerHTML=logs.map(l=>{
+        const d=new Date(l.time);
+        const timeStr=`${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+        return `<div class="p-3 bg-neutral dark:bg-gray-700 rounded-lg">${timeStr} · ${l.name} · 学习 ${l.minutes} 分钟</div>`;
+      }).reverse().join('');
+    }
+    function closeLogPage(){document.getElementById('logPage').classList.add('hidden');}
+    function clearLogs(){if(!confirm('确定清空？'))return;saveUserLogs([]);openLogPage();calcTimeStats();}
+
+    // 图表页面
+    function openChartPage(){
+      document.getElementById('chartPage').classList.remove('hidden');
+      const logs=getUserLogs();
+      const map={};
+      logs.forEach(l=>{
+        const d=new Date(l.time);
+        const key=`${d.getMonth()+1}/${d.getDate()}`;
+        if(!map[key])map[key]=0;
+        map[key]+=l.minutes;
+      });
+      const ctx=document.getElementById('studyChart').getContext('2d');
+      if(studyChart)studyChart.destroy();
+      studyChart=new Chart(ctx,{
+        type:'bar',
+        data:{
+          labels:Object.keys(map),
+          datasets:[{
+            label:'每日学习分钟',
+            data:Object.values(map),
+            backgroundColor:'#165DFF'
+          }]
+        }
+      });
+    }
+    function closeChartPage(){document.getElementById('chartPage').classList.add('hidden');}
+
+    // 打卡日历
+    function openCalendar(){
+      document.getElementById('calendarPage').classList.remove('hidden');
+      const logs=getUserLogs();
+      const daySet=new Set();
+      logs.forEach(l=>{
+        const d=new Date(l.time);
+        daySet.add(`${d.getFullYear()}${d.getMonth()}${d.getDate()}`);
+      });
+      const now=new Date();
+      const year=now.getFullYear(),month=now.getMonth();
+      const firstDay=new Date(year,month,1).getDay();
+      const days=new Date(year,month+1,0).getDate();
+      const grid=document.getElementById('calendarGrid');
+      grid.innerHTML='';
+      for(let i=0;i<firstDay;i++)grid.innerHTML+=`<div class="calendar-day"></div>`;
+      for(let d=1;d<=days;d++){
+        const key=`${year}${month}${d}`;
+        const active=daySet.has(key)?'bg-primary text-white':'bg-neutral dark:bg-gray-700';
+        grid.innerHTML+=`<div class="calendar-day flex items-center justify-center text-sm rounded-full ${active}">${d}</div>`;
+      }
+    }
+    function closeCalendar(){document.getElementById('calendarPage').classList.add('hidden');}
+
+    // 导入导出
+    function exportData(){
+      const data={skills:getUserSkills(),logs:getUserLogs()};
+      const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download=`SkillMaster_${currentUserName}.json`;
+      a.click();
+    }
+    function importData(){document.getElementById('importFile').click();}
+    document.getElementById('importFile').onchange=e=>{
+      const file=e.target.files[0];
+      if(!file)return;
+      const reader=new FileReader();
+      reader.onload=ev=>{
+        const data=JSON.parse(ev.target.result);
+        saveUserSkills(data.skills||[]);
+        saveUserLogs(data.logs||[]);
+        alert('导入成功！');
+        renderSkillList();
+        calcTimeStats();
+      };
+      reader.readAsText(file);
+    };
+  </script>
+</body>
+</html>
